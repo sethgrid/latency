@@ -1,0 +1,6 @@
+git clone git@heroku.com:peaceful-falls-6706.git -o heroku
+
+App URL:
+http://peaceful-falls-6706.herokuapp.com/
+Git URL:
+git@heroku.com:peaceful-falls-6706.git 
