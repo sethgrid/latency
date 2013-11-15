@@ -3,10 +3,16 @@ package main
 import (
 	"fmt"
 	"math/rand"
-	"net/http" //package for http based web programs
+	"net/http"
 	"strconv"
 	"time"
+    "encoding/json"
 )
+
+type Message struct {
+    Message string
+    Delay int64
+}
 
 func handler(w http.ResponseWriter, r *http.Request) {
     var delay int64
@@ -14,7 +20,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	// get the number of seconds to wait to respond
 	integerBase := 10
 	bitSize := 32
-	latency := r.FormValue("latency")
+	latency := r.FormValue("delay")
 	seconds, err := strconv.ParseInt(latency, integerBase, bitSize)
     if err != nil {
         seconds = 0
@@ -29,8 +35,16 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
     time.Sleep(time.Duration(delay) * time.Second)
 
+    message := Message{"success", delay}
+    jsonMessage, err := json.Marshal(message)
+    if err != nil {
+        fmt.Println("Error marshalling to json!")
+        fmt.Println(err)
+        jsonMessage = []byte("{\"message\":\"Error marshalling json\"}")
+    }
+
 	w.Header().Set("Content-Type", "application/json")
-	fmt.Fprintf(w, "{\"message\":\"success\"}")
+	fmt.Fprintf(w, string(jsonMessage[:]))
 }
 
 func main() {
