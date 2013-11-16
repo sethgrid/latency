@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"time"
+    "github.com/nu7hatch/gouuid"
 )
 
 type Message struct {
@@ -58,7 +59,12 @@ func sampleHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 
 	for i := 0; i < numUrls; i++ {
-		fmt.Fprintf(w, "http://%s/\n", r.Host)
+        u, err := uuid.NewV4()
+        if err != nil{
+            fmt.Println("Error with uuid")
+            u = nil
+        }
+		fmt.Fprintf(w, "http://%s/%s\n", r.Host, u)
 	}
 }
 
