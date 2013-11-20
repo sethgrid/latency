@@ -26,7 +26,11 @@ type UrlList struct {
 	Urls []Url `json:"urls"`
 }
 
-// Takes `code`
+// Params:
+// * code: status code to return (optional). If not provided, status code will
+//         be generated randomly
+// * delay: number of seconds to wait before returning response. Will be random
+// 		    if not provided.
 func handler(w http.ResponseWriter, r *http.Request) {
 	var delay int64
 	message := Message{Delay: delay, Path: r.URL.Path}
@@ -77,8 +81,6 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		message.Message = "success"
 	}
-	log.Printf("Sending status code %d", code)
-	w.WriteHeader(code)
 
 	jsonMessage, err := json.Marshal(message)
 	if err != nil {
@@ -88,6 +90,9 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	log.Printf("Sending status code %d", code)
+	w.WriteHeader(code)
+
 	fmt.Fprintf(w, "%s", jsonMessage)
 }
 
@@ -97,9 +102,8 @@ func sampleHandler(w http.ResponseWriter, r *http.Request) {
 	if numUrlsString != "" {
 		numUrls, _ = strconv.Atoi(numUrlsString)
 	}
-
-	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 
 	urlList := UrlList{}
 	for i := 0; i < numUrls; i++ {
