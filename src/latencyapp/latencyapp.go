@@ -15,6 +15,7 @@ import (
 type Message struct {
 	Message string `json:"message"`
 	Delay   int64  `json:"delay"`
+	Path    string `json:"path"`
 }
 
 type Url struct {
@@ -25,26 +26,60 @@ type UrlList struct {
 	Urls []Url `json:"urls"`
 }
 
+// Takes `code`
 func handler(w http.ResponseWriter, r *http.Request) {
 	var delay int64
+	message := Message{Delay: delay, Path: r.URL.Path}
+
+	log.Printf("%s %s", r.Method, r.URL.String())
 
 	// get the number of seconds to wait to respond
-	latency := r.FormValue("delay")
+	latency := r.URL.Query().Get("delay")
 	seconds, err := strconv.Atoi(latency)
-	if err != nil {
-		seconds = 0
-	}
-	if seconds == 0 {
+
+	if err != nil || seconds < 0 {
 		delay = rand.Int63n(10)
 	} else {
 		delay = int64(seconds)
 	}
 
-	fmt.Printf("Going to wait %d seconds...\n", delay)
-
+	log.Printf("Going to wait %d seconds...\n", delay)
 	time.Sleep(time.Duration(delay) * time.Second)
 
-	message := Message{"success", delay}
+	var code int
+	var rnd int
+	codeStr := r.URL.Query().Get("code")
+
+	// Use the code we got passed in
+	if err == nil && codeStr != "" {
+		code, err = strconv.Atoi(codeStr)
+		if err != nil {
+			code = 200
+		}
+
+		// Pick a random code
+	} else {
+		rnd = rand.Intn(10)
+		if rnd == 4 {
+			code = 400
+		} else if rnd == 5 {
+			code = 500
+		} else {
+			message.Message = "success"
+			code = 200
+		}
+	}
+
+	if code >= 500 {
+		message.Message = "server error"
+	} else if code >= 400 {
+		message.Message = "client error"
+	} else {
+		message.Message = "success"
+	}
+	log.Printf("Sending status code %d", code)
+	w.WriteHeader(code)
+
 	jsonMessage, err := json.Marshal(message)
 	if err != nil {
 		fmt.Println("Error marshalling to json!")
