@@ -29,7 +29,6 @@ type UrlList struct {
 // Takes `code`
 func handler(w http.ResponseWriter, r *http.Request) {
 	var delay int64
-	message := Message{Delay: delay, Path: r.URL.Path}
 
 	log.Printf("%s %s", r.Method, r.URL.String())
 
@@ -42,6 +41,8 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		delay = int64(seconds)
 	}
+
+	message := Message{Delay: delay, Path: r.URL.Path}
 
 	log.Printf("Going to wait %d seconds...\n", delay)
 	time.Sleep(time.Duration(delay) * time.Second)
