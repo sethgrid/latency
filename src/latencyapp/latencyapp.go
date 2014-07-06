@@ -47,21 +47,6 @@ func GetFunctionName(i interface{}) string {
 	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
 }
 
-// Sample Handler displays the sample page with all the urls to attempt
-func jsonSampleHandler(w http.ResponseWriter, r *http.Request) {
-	dynamicSampleHandler(jsonData, w, r)
-}
-
-// Sample Handler displays the sample page with all the urls to attempt
-func xmlSampleHandler(w http.ResponseWriter, r *http.Request) {
-	dynamicSampleHandler(xmlData, w, r)
-}
-
-// Sample Handler displays the sample page with all the urls to attempt
-func txtSampleHandler(w http.ResponseWriter, r *http.Request) {
-	dynamicSampleHandler(txtData, w, r)
-}
-
 // passed in to make content json
 func jsonData(v UrlList) (string, string) {
 	res, _ := json.Marshal(v)
@@ -180,27 +165,18 @@ func (d *DelayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "%s", msg)
 }
 
+type SampleHandler struct {
+	marshaler Marshaler
+	urlType   string
+}
+
 // takes the Marshaler to determine the type of sample page to display
-func dynamicSampleHandler(m Marshaler, w http.ResponseWriter, r *http.Request) {
+func (s *SampleHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	numUrlsString := r.URL.Query().Get("n")
 	numUrls := 100
 	if numUrlsString != "" {
 		numUrls, _ = strconv.Atoi(numUrlsString)
-	}
-
-	urlType := ""
-	mName := GetFunctionName(m)
-	log.Print("m's name is ", mName)
-	if strings.Contains(mName, "json") {
-		urlType = "json"
-	} else if strings.Contains(mName, "xml") {
-		urlType = "xml"
-	} else if strings.Contains(mName, "txt") {
-		urlType = "txt"
-	} else {
-		urlType = "json"
-		log.Print("defaulting url to json. unknown url type in function name ", mName)
 	}
 
 	urlList := UrlList{}
@@ -210,10 +186,10 @@ func dynamicSampleHandler(m Marshaler, w http.ResponseWriter, r *http.Request) {
 			fmt.Println("Error with uuid")
 			u = nil
 		}
-		url := Url{Url: fmt.Sprintf("http://%s/%s/%s", r.Host, urlType, u)}
+		url := Url{Url: fmt.Sprintf("http://%s/%s/%s", r.Host, s.urlType, u)}
 		urlList.Urls = append(urlList.Urls, url)
 	}
-	contentType, message := m(urlList)
+	contentType, message := s.marshaler(urlList)
 	w.Header().Set("Content-Type", contentType)
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintf(w, "%s", message)
@@ -223,19 +199,25 @@ func main() {
 	// set up handlers to serve up json, xml, and plain text
 	jsonHandler := &DelayHandler{marshaler: jsonMessageData, decoder: RandomDecoder}
 	http.Handle("/json/", jsonHandler)
-	http.HandleFunc("/json/sample", jsonSampleHandler)
+
+	jsonSampleHandler := &SampleHandler{marshaler: jsonData, urlType: "json"}
+	http.Handle("/json/sample", jsonSampleHandler)
 
 	xmlHandler := &DelayHandler{marshaler: xmlMessageData, decoder: RandomDecoder}
 	http.Handle("/xml/", xmlHandler)
-	http.HandleFunc("/xml/sample", xmlSampleHandler)
+
+	xmlSampleHandler := &SampleHandler{marshaler: xmlData, urlType: "xml"}
+	http.Handle("/xml/sample", xmlSampleHandler)
 
 	txtHandler := &DelayHandler{marshaler: txtMessageData, decoder: RandomDecoder}
 	http.Handle("/txt/", txtHandler)
-	http.HandleFunc("/txt/sample", txtSampleHandler)
+
+	txtSampleHandler := &SampleHandler{marshaler: txtData, urlType: "txt"}
+	http.Handle("/txt/sample", txtSampleHandler)
 
 	// default (anything not matching above will fall to the jsonHandler)
 	http.Handle("/", jsonHandler)
-	http.HandleFunc("/sample", jsonSampleHandler)
+	http.Handle("/sample", jsonSampleHandler)
 
 	// serve
 	log.Printf("Listening on ':%s'", os.Getenv("PORT"))
