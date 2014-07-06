@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
@@ -58,8 +60,8 @@ func jsonData(v UrlList) (string, string) {
 func jsonMessageData(v Message) (string, string) {
 	message, err := json.Marshal(v)
 	if err != nil {
-		fmt.Println("Error marshalling to json!")
-		fmt.Println(err)
+		log.Println("Error marshalling to json!")
+		log.Println(err)
 		message = []byte("{\"message\":\"Error marshalling json\"}")
 	}
 	return "application/json", string(message)
@@ -73,8 +75,8 @@ func xmlData(v UrlList) (string, string) {
 func xmlMessageData(v Message) (string, string) {
 	message, err := xml.Marshal(v)
 	if err != nil {
-		fmt.Println("Error marshalling to xml!")
-		fmt.Println(err)
+		log.Println("Error marshalling to xml!")
+		log.Println(err)
 		message = []byte("{\"message\":\"Error marshalling xml\"}")
 	}
 	return "application/xml", string(message)
@@ -146,6 +148,20 @@ func RandomDecoder(r *http.Request) Message {
 	return message
 }
 
+func Base64JSONDecoder(r *http.Request) Message {
+	// grab the last piece of the url
+	urlParts := strings.Split(r.URL.Path, "/")
+	msgBase64JSON := urlParts[len(urlParts)-1]
+	reader := strings.NewReader(msgBase64JSON)
+	b64Decoder := base64.NewDecoder(base64.URLEncoding, reader)
+	jsonDecoder := json.NewDecoder(b64Decoder)
+
+	message := Message{}
+	jsonDecoder.Decode(&message)
+
+	return message
+}
+
 type DelayHandler struct {
 	marshaler messageMarshaler
 	decoder   decoder
@@ -171,11 +187,50 @@ func (d *DelayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func UUIDEncoder() string {
 	u, err := uuid.NewV4()
 	if err != nil {
-		fmt.Println("Error with uuid")
+		log.Println("Error with uuid")
 		return ""
 	}
 
 	return u.String()
+}
+
+func RandomEncoder() string {
+	message := Message{}
+
+	// random delay
+	message.Delay = rand.Int63n(10)
+
+	// random status code
+	// determine message here too
+	rndCode := rand.Intn(10)
+	switch rndCode {
+	case 4:
+		message.StatusCode = 400
+		message.Message = "client error"
+	case 5:
+		message.StatusCode = 500
+		message.Message = "server error"
+	default:
+		message.StatusCode = 200
+		message.Message = "success"
+	}
+
+	jsonBytes, err := json.Marshal(message)
+	if err != nil {
+		log.Println("Error with uuid")
+		return "broken-url"
+	}
+
+	// buffer for storing the result of the base64 encoding
+	buffer := &bytes.Buffer{}
+
+	// build encoder with URLEncoding for safe url usage
+	encoder := base64.NewEncoder(base64.URLEncoding, buffer)
+	encoder.Write(jsonBytes)
+	// close required to flush remaining bytes
+	encoder.Close()
+
+	return string(buffer.Bytes())
 }
 
 type SampleHandler struct {
@@ -208,22 +263,22 @@ func (s *SampleHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	// set up handlers to serve up json, xml, and plain text
-	jsonHandler := &DelayHandler{marshaler: jsonMessageData, decoder: RandomDecoder}
+	jsonHandler := &DelayHandler{marshaler: jsonMessageData, decoder: Base64JSONDecoder}
 	http.Handle("/json/", jsonHandler)
 
-	jsonSampleHandler := &SampleHandler{marshaler: jsonData, urlType: "json", encoder: UUIDEncoder}
+	jsonSampleHandler := &SampleHandler{marshaler: jsonData, urlType: "json", encoder: RandomEncoder}
 	http.Handle("/json/sample", jsonSampleHandler)
 
-	xmlHandler := &DelayHandler{marshaler: xmlMessageData, decoder: RandomDecoder}
+	xmlHandler := &DelayHandler{marshaler: xmlMessageData, decoder: Base64JSONDecoder}
 	http.Handle("/xml/", xmlHandler)
 
-	xmlSampleHandler := &SampleHandler{marshaler: xmlData, urlType: "xml", encoder: UUIDEncoder}
+	xmlSampleHandler := &SampleHandler{marshaler: xmlData, urlType: "xml", encoder: RandomEncoder}
 	http.Handle("/xml/sample", xmlSampleHandler)
 
-	txtHandler := &DelayHandler{marshaler: txtMessageData, decoder: RandomDecoder}
+	txtHandler := &DelayHandler{marshaler: txtMessageData, decoder: Base64JSONDecoder}
 	http.Handle("/txt/", txtHandler)
 
-	txtSampleHandler := &SampleHandler{marshaler: txtData, urlType: "txt", encoder: UUIDEncoder}
+	txtSampleHandler := &SampleHandler{marshaler: txtData, urlType: "txt", encoder: RandomEncoder}
 	http.Handle("/txt/sample", txtSampleHandler)
 
 	// default (anything not matching above will fall to the jsonHandler)
