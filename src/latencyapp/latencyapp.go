@@ -34,14 +34,14 @@ type UrlList struct {
 	Urls []Url `json:"urls"`
 }
 
-// marshler and message Marshler act as a type of middle ware to reduce code duplication
-type marshler func(v UrlList) (string, string)
-type messageMarshler func(v Message) (string, string)
+// Marshaler and message Marshaler act as a type of middle ware to reduce code duplication
+type Marshaler func(v UrlList) (string, string)
+type messageMarshaler func(v Message) (string, string)
 
 // decodes urls and returns the values for status, message, and delay
 type decoder func(*http.Request) Message
 
-// used to find out what function was passed into the marshler func
+// used to find out what function was passed into the Marshaler func
 // allows introspection and to keep the right kind of links (txt,json,xml)
 func GetFunctionName(i interface{}) string {
 	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
@@ -159,11 +159,11 @@ func RandomDecoder(r *http.Request) Message {
 }
 
 type DelayHandler struct {
-	marshaler messageMarshler
+	marshaler messageMarshaler
 	decoder   decoder
 }
 
-// takes a message and uses the messageMarshler to set the type of message
+// takes a message and uses the messageMarshaler to set the type of message
 func (d *DelayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	message := d.decoder(r)
 
@@ -180,8 +180,8 @@ func (d *DelayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "%s", msg)
 }
 
-// takes the marshler to determine the type of sample page to display
-func dynamicSampleHandler(m marshler, w http.ResponseWriter, r *http.Request) {
+// takes the Marshaler to determine the type of sample page to display
+func dynamicSampleHandler(m Marshaler, w http.ResponseWriter, r *http.Request) {
 
 	numUrlsString := r.URL.Query().Get("n")
 	numUrls := 100
