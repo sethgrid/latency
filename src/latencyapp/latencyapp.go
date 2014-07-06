@@ -158,13 +158,13 @@ func RandomDecoder(r *http.Request) Message {
 	return message
 }
 
-type DynamicHandler struct {
+type DelayHandler struct {
 	marshaler messageMarshler
 	decoder   decoder
 }
 
 // takes a message and uses the messageMarshler to set the type of message
-func (d *DynamicHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (d *DelayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	message := d.decoder(r)
 
 	log.Printf("Going to wait %d seconds...\n", message.Delay)
@@ -221,15 +221,15 @@ func dynamicSampleHandler(m marshler, w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	// set up handlers to serve up json, xml, and plain text
-	jsonHandler := &DynamicHandler{marshaler: jsonMessageData, decoder: RandomDecoder}
+	jsonHandler := &DelayHandler{marshaler: jsonMessageData, decoder: RandomDecoder}
 	http.Handle("/json/", jsonHandler)
 	http.HandleFunc("/json/sample", jsonSampleHandler)
 
-	xmlHandler := &DynamicHandler{marshaler: xmlMessageData, decoder: RandomDecoder}
+	xmlHandler := &DelayHandler{marshaler: xmlMessageData, decoder: RandomDecoder}
 	http.Handle("/xml/", xmlHandler)
 	http.HandleFunc("/xml/sample", xmlSampleHandler)
 
-	txtHandler := &DynamicHandler{marshaler: txtMessageData, decoder: RandomDecoder}
+	txtHandler := &DelayHandler{marshaler: txtMessageData, decoder: RandomDecoder}
 	http.Handle("/txt/", txtHandler)
 	http.HandleFunc("/txt/sample", txtSampleHandler)
 
