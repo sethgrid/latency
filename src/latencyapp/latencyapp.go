@@ -49,29 +49,14 @@ func jsonSampleHandler(w http.ResponseWriter, r *http.Request) {
 	dynamicSampleHandler(jsonData, w, r)
 }
 
-// Handler displays a single result with delay, message
-func jsonHandler(w http.ResponseWriter, r *http.Request) {
-	dynamicHandler(jsonMessageData, w, r)
-}
-
 // Sample Handler displays the sample page with all the urls to attempt
 func xmlSampleHandler(w http.ResponseWriter, r *http.Request) {
 	dynamicSampleHandler(xmlData, w, r)
 }
 
-// Handler displays a single result with delay, message
-func xmlHandler(w http.ResponseWriter, r *http.Request) {
-	dynamicHandler(xmlMessageData, w, r)
-}
-
 // Sample Handler displays the sample page with all the urls to attempt
 func txtSampleHandler(w http.ResponseWriter, r *http.Request) {
 	dynamicSampleHandler(txtData, w, r)
-}
-
-// Handler displays a single result with delay, message
-func txtHandler(w http.ResponseWriter, r *http.Request) {
-	dynamicHandler(txtMessageData, w, r)
 }
 
 // passed in to make content json
@@ -169,15 +154,19 @@ func DataFromRequest(r *http.Request) Message {
 	return message
 }
 
+type DynamicHandler struct {
+	marshaler messageMarshler
+}
+
 // takes a message and uses the messageMarshler to set the type of message
-func dynamicHandler(m messageMarshler, w http.ResponseWriter, r *http.Request) {
+func (d *DynamicHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	message := DataFromRequest(r)
 
 	log.Printf("Going to wait %d seconds...\n", message.Delay)
 	time.Sleep(time.Duration(message.Delay) * time.Second)
 
 	//m = txtMessageData
-	contentType, msg := m(message)
+	contentType, msg := d.marshaler(message)
 
 	w.Header().Set("Content-Type", contentType)
 	log.Printf("Sending status code %d", message.StatusCode)
@@ -227,17 +216,20 @@ func dynamicSampleHandler(m marshler, w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	// set up handlers to serve up json, xml, and plain text
-	http.HandleFunc("/json/", jsonHandler)
+	jsonHandler := &DynamicHandler{marshaler: jsonMessageData}
+	http.Handle("/json/", jsonHandler)
 	http.HandleFunc("/json/sample", jsonSampleHandler)
 
-	http.HandleFunc("/xml/", xmlHandler)
+	xmlHandler := &DynamicHandler{marshaler: xmlMessageData}
+	http.Handle("/xml/", xmlHandler)
 	http.HandleFunc("/xml/sample", xmlSampleHandler)
 
-	http.HandleFunc("/txt/", txtHandler)
+	txtHandler := &DynamicHandler{marshaler: txtMessageData}
+	http.Handle("/txt/", txtHandler)
 	http.HandleFunc("/txt/sample", txtSampleHandler)
 
 	// default (anything not matching above will fall to the jsonHandler)
-	http.HandleFunc("/", jsonHandler)
+	http.Handle("/", jsonHandler)
 	http.HandleFunc("/sample", jsonSampleHandler)
 
 	// serve
