@@ -41,6 +41,9 @@ type messageMarshaler func(v Message) (string, string)
 // decodes urls and returns the values for status, message, and delay
 type decoder func(*http.Request) Message
 
+// generates an encoded url
+type encoder func() string
+
 // used to find out what function was passed into the Marshaler func
 // allows introspection and to keep the right kind of links (txt,json,xml)
 func GetFunctionName(i interface{}) string {
@@ -165,9 +168,21 @@ func (d *DelayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "%s", msg)
 }
 
+func UUIDEncoder() string {
+	u, err := uuid.NewV4()
+	if err != nil {
+		fmt.Println("Error with uuid")
+		return ""
+	}
+
+	return u.String()
+}
+
 type SampleHandler struct {
 	marshaler Marshaler
-	urlType   string
+	encoder   encoder
+
+	urlType string
 }
 
 // takes the Marshaler to determine the type of sample page to display
@@ -181,12 +196,8 @@ func (s *SampleHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	urlList := UrlList{}
 	for i := 0; i < numUrls; i++ {
-		u, err := uuid.NewV4()
-		if err != nil {
-			fmt.Println("Error with uuid")
-			u = nil
-		}
-		url := Url{Url: fmt.Sprintf("http://%s/%s/%s", r.Host, s.urlType, u)}
+		urlData := s.encoder()
+		url := Url{Url: fmt.Sprintf("http://%s/%s/%s", r.Host, s.urlType, urlData)}
 		urlList.Urls = append(urlList.Urls, url)
 	}
 	contentType, message := s.marshaler(urlList)
@@ -200,19 +211,19 @@ func main() {
 	jsonHandler := &DelayHandler{marshaler: jsonMessageData, decoder: RandomDecoder}
 	http.Handle("/json/", jsonHandler)
 
-	jsonSampleHandler := &SampleHandler{marshaler: jsonData, urlType: "json"}
+	jsonSampleHandler := &SampleHandler{marshaler: jsonData, urlType: "json", encoder: UUIDEncoder}
 	http.Handle("/json/sample", jsonSampleHandler)
 
 	xmlHandler := &DelayHandler{marshaler: xmlMessageData, decoder: RandomDecoder}
 	http.Handle("/xml/", xmlHandler)
 
-	xmlSampleHandler := &SampleHandler{marshaler: xmlData, urlType: "xml"}
+	xmlSampleHandler := &SampleHandler{marshaler: xmlData, urlType: "xml", encoder: UUIDEncoder}
 	http.Handle("/xml/sample", xmlSampleHandler)
 
 	txtHandler := &DelayHandler{marshaler: txtMessageData, decoder: RandomDecoder}
 	http.Handle("/txt/", txtHandler)
 
-	txtSampleHandler := &SampleHandler{marshaler: txtData, urlType: "txt"}
+	txtSampleHandler := &SampleHandler{marshaler: txtData, urlType: "txt", encoder: UUIDEncoder}
 	http.Handle("/txt/sample", txtSampleHandler)
 
 	// default (anything not matching above will fall to the jsonHandler)
