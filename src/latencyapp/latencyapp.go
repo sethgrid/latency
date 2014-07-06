@@ -38,6 +38,9 @@ type UrlList struct {
 type marshler func(v UrlList) (string, string)
 type messageMarshler func(v Message) (string, string)
 
+// decodes urls and returns the values for status, message, and delay
+type decoder func(*http.Request) Message
+
 // used to find out what function was passed into the marshler func
 // allows introspection and to keep the right kind of links (txt,json,xml)
 func GetFunctionName(i interface{}) string {
@@ -104,7 +107,8 @@ func txtMessageData(v Message) (string, string) {
 	return "text/plain", message
 }
 
-func DataFromRequest(r *http.Request) Message {
+// decoder that ignores the request and returns random data
+func RandomDecoder(r *http.Request) Message {
 	var delay int64
 
 	log.Printf("%s %s", r.Method, r.URL.String())
@@ -156,11 +160,12 @@ func DataFromRequest(r *http.Request) Message {
 
 type DynamicHandler struct {
 	marshaler messageMarshler
+	decoder   decoder
 }
 
 // takes a message and uses the messageMarshler to set the type of message
 func (d *DynamicHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	message := DataFromRequest(r)
+	message := d.decoder(r)
 
 	log.Printf("Going to wait %d seconds...\n", message.Delay)
 	time.Sleep(time.Duration(message.Delay) * time.Second)
@@ -216,15 +221,15 @@ func dynamicSampleHandler(m marshler, w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	// set up handlers to serve up json, xml, and plain text
-	jsonHandler := &DynamicHandler{marshaler: jsonMessageData}
+	jsonHandler := &DynamicHandler{marshaler: jsonMessageData, decoder: RandomDecoder}
 	http.Handle("/json/", jsonHandler)
 	http.HandleFunc("/json/sample", jsonSampleHandler)
 
-	xmlHandler := &DynamicHandler{marshaler: xmlMessageData}
+	xmlHandler := &DynamicHandler{marshaler: xmlMessageData, decoder: RandomDecoder}
 	http.Handle("/xml/", xmlHandler)
 	http.HandleFunc("/xml/sample", xmlSampleHandler)
 
-	txtHandler := &DynamicHandler{marshaler: txtMessageData}
+	txtHandler := &DynamicHandler{marshaler: txtMessageData, decoder: RandomDecoder}
 	http.Handle("/txt/", txtHandler)
 	http.HandleFunc("/txt/sample", txtSampleHandler)
 
