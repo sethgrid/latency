@@ -19,9 +19,9 @@ import (
 
 // contains the payload of a single request
 type Message struct {
-	Message string `json:"message"`
-	Delay   int64  `json:"delay"`
-	Path    string `json:"path"`
+	Message    string `json:"message"`
+	Delay      int64  `json:"delay"`
+	StatusCode int    `json:"status_code"`
 }
 
 // each url in the sample page
@@ -49,7 +49,7 @@ func jsonSampleHandler(w http.ResponseWriter, r *http.Request) {
 	dynamicSampleHandler(jsonData, w, r)
 }
 
-// Handler displays a single result with delay, message, and path
+// Handler displays a single result with delay, message
 func jsonHandler(w http.ResponseWriter, r *http.Request) {
 	dynamicHandler(jsonMessageData, w, r)
 }
@@ -59,7 +59,7 @@ func xmlSampleHandler(w http.ResponseWriter, r *http.Request) {
 	dynamicSampleHandler(xmlData, w, r)
 }
 
-// Handler displays a single result with delay, message, and path
+// Handler displays a single result with delay, message
 func xmlHandler(w http.ResponseWriter, r *http.Request) {
 	dynamicHandler(xmlMessageData, w, r)
 }
@@ -69,7 +69,7 @@ func txtSampleHandler(w http.ResponseWriter, r *http.Request) {
 	dynamicSampleHandler(txtData, w, r)
 }
 
-// Handler displays a single result with delay, message, and path
+// Handler displays a single result with delay, message
 func txtHandler(w http.ResponseWriter, r *http.Request) {
 	dynamicHandler(txtMessageData, w, r)
 }
@@ -115,12 +115,11 @@ func txtData(v UrlList) (string, string) {
 	return "text/plain", res
 }
 func txtMessageData(v Message) (string, string) {
-	message := fmt.Sprintf("message: %s, delay: %d, path: %s\n", v.Message, v.Delay, v.Path)
+	message := fmt.Sprintf("message: %s, delay: %d\n", v.Message, v.Delay)
 	return "text/plain", message
 }
 
-// takes a message and uses the messageMarshler to set the type of message
-func dynamicHandler(m messageMarshler, w http.ResponseWriter, r *http.Request) {
+func DataFromRequest(r *http.Request) Message {
 	var delay int64
 
 	log.Printf("%s %s", r.Method, r.URL.String())
@@ -135,48 +134,54 @@ func dynamicHandler(m messageMarshler, w http.ResponseWriter, r *http.Request) {
 		delay = int64(seconds)
 	}
 
-	message := Message{Delay: delay, Path: r.URL.Path}
+	message := Message{Delay: delay}
 
-	log.Printf("Going to wait %d seconds...\n", delay)
-	time.Sleep(time.Duration(delay) * time.Second)
-
-	var code int
-	var rnd int
 	codeStr := r.URL.Query().Get("code")
 
 	// Use the code we got passed in
 	if err == nil && codeStr != "" {
-		code, err = strconv.Atoi(codeStr)
+		message.StatusCode, err = strconv.Atoi(codeStr)
 		if err != nil {
-			code = 200
+			message.StatusCode = 200
 		}
 
-		// Pick a random code
+		// Pick a random message.StatusCode
 	} else {
-		rnd = rand.Intn(10)
+		rnd := rand.Intn(10)
 		if rnd == 4 {
-			code = 400
+			message.StatusCode = 400
 		} else if rnd == 5 {
-			code = 500
+			message.StatusCode = 500
 		} else {
 			message.Message = "success"
-			code = 200
+			message.StatusCode = 200
 		}
 	}
 
-	if code >= 500 {
+	if message.StatusCode >= 500 {
 		message.Message = "server error"
-	} else if code >= 400 {
+	} else if message.StatusCode >= 400 {
 		message.Message = "client error"
 	} else {
 		message.Message = "success"
 	}
+
+	return message
+}
+
+// takes a message and uses the messageMarshler to set the type of message
+func dynamicHandler(m messageMarshler, w http.ResponseWriter, r *http.Request) {
+	message := DataFromRequest(r)
+
+	log.Printf("Going to wait %d seconds...\n", message.Delay)
+	time.Sleep(time.Duration(message.Delay) * time.Second)
+
 	//m = txtMessageData
 	contentType, msg := m(message)
 
 	w.Header().Set("Content-Type", contentType)
-	log.Printf("Sending status code %d", code)
-	w.WriteHeader(code)
+	log.Printf("Sending status code %d", message.StatusCode)
+	w.WriteHeader(message.StatusCode)
 
 	fmt.Fprintf(w, "%s", msg)
 }
