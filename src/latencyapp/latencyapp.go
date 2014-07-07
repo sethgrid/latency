@@ -171,7 +171,7 @@ type DelayHandler struct {
 func (d *DelayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	message := d.decoder(r)
 
-	log.Printf("Going to wait %d seconds...\n", message.Delay)
+	log.Printf("Going to wait %d seconds...", message.Delay)
 	time.Sleep(time.Duration(message.Delay) * time.Second)
 
 	//m = txtMessageData
