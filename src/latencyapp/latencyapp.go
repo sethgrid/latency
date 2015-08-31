@@ -282,7 +282,8 @@ func main() {
 	http.Handle("/txt/sample", txtSampleHandler)
 
 	// default (anything not matching above will fall to the jsonHandler)
-	http.Handle("/", jsonHandler)
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("please go to /sample")) })
+	http.Handle("/favicon.ico", http.NotFoundHandler())
 	http.Handle("/sample", jsonSampleHandler)
 
 	// serve
